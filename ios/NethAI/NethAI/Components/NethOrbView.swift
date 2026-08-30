@@ -2,8 +2,9 @@ import SwiftUI
 
 // MARK: - NethOrbView
 // The signature animated visual centerpiece of Neth-AI.
-// Layered ZStack of independent Canvas views, each with a minimal closure body
-// (kept simple so the Swift type-checker can resolve them quickly).
+// Pure SwiftUI Canvas + TimelineView. Each layer is a separate struct view
+// with a minimal closure body for fast type-checking. Uses fill()/stroke()
+// (simpler than draw()) and explicit Shading let-bindings to help inference.
 
 struct NethOrbView: View {
     var state: OrbState
@@ -67,7 +68,10 @@ private struct HaloCanvas: View {
                 glow.opacity(0.18),
                 glow.opacity(0.0)
             ])
-            gCtx.draw(path, with: .radialGradient(grad, center: center, startRadius: 0, endRadius: radius))
+            let shading: GraphicsContext.Shading = .radialGradient(
+                grad, center: center, startRadius: 0, endRadius: radius
+            )
+            gCtx.fill(path, with: shading)
         }
     }
 }
@@ -98,12 +102,12 @@ private struct RingsCanvas: View {
     var body: some View {
         Canvas { gCtx, _ in
             for i in 0..<3 {
-                drawRing(gCtx: gCtx, i: i, t: t, period: period, glow: glow)
+                drawRing(gCtx, i: i)
             }
         }
     }
 
-    private func drawRing(gCtx: GraphicsContext, i: Int, t: Double, period: Double, glow: Color) {
+    private func drawRing(_ gCtx: GraphicsContext, i: Int) {
         let center = CGPoint(x: baseR, y: baseR)
         let direction: Double = (i % 2 == 0) ? 1 : -1
         let rotation = t * direction * (0.4 + 0.15 * Double(i)) / period
@@ -113,10 +117,9 @@ private struct RingsCanvas: View {
 
         let rect = CGRect(x: center.x - radius, y: center.y - radius,
                           width: radius * 2, height: radius * 2)
-        var path = Path()
-        path.addEllipse(in: rect)
+        let path = Path(ellipseIn: rect)
 
-        let stroke = StrokeStyle(
+        let strokeStyle = StrokeStyle(
             lineWidth: 1.4,
             lineCap: .round,
             dash: [radius * arcLen, radius * (2 - arcLen) * 1.6],
@@ -124,11 +127,12 @@ private struct RingsCanvas: View {
         )
 
         let grad = Gradient(colors: [glow.opacity(0.85), glow.opacity(0.15)])
-        gCtx.draw(path, with: .linearGradient(
+        let shading: GraphicsContext.Shading = .linearGradient(
             grad,
             startPoint: CGPoint(x: center.x - radius, y: center.y - radius),
             endPoint: CGPoint(x: center.x + radius, y: center.y + radius)
-        ), style: stroke)
+        )
+        gCtx.stroke(path, with: shading, style: strokeStyle)
     }
 }
 
@@ -173,12 +177,12 @@ private struct ParticlesCanvas: View {
             let center = CGPoint(x: baseR, y: baseR)
             var rng = SeededRNG(seed: seed &+ UInt64(t * 4))
             for i in 0..<count {
-                drawParticle(gCtx: gCtx, i: i, center: center, rng: &rng)
+                drawParticle(gCtx, i: i, center: center, rng: &rng)
             }
         }
     }
 
-    private func drawParticle(gCtx: GraphicsContext, i: Int, center: CGPoint, rng: inout SeededRNG) {
+    private func drawParticle(_ gCtx: GraphicsContext, i: Int, center: CGPoint, rng: inout SeededRNG) {
         let angle = (Double(i) / Double(count)) * 2 * .pi + t / period
         let orbitR = baseR * (0.55 + 0.35 * rng.nextDouble())
         let wobble = sin(t * 1.6 + Double(i)) * 4
@@ -188,7 +192,8 @@ private struct ParticlesCanvas: View {
         let alpha = 0.5 + 0.5 * sin(t * 2 + Double(i) * 0.7)
         let rect = CGRect(x: x - pSize, y: y - pSize, width: pSize * 2, height: pSize * 2)
         let path = Path(ellipseIn: rect)
-        gCtx.draw(path, with: .color(glow.opacity(Double(alpha))))
+        let shading: GraphicsContext.Shading = .color(glow.opacity(Double(alpha)))
+        gCtx.fill(path, with: shading)
     }
 }
 
@@ -229,12 +234,15 @@ private struct CoreCanvas: View {
                 Color.black.opacity(0.9)
             ])
             let highlightCenter = CGPoint(x: center.x - coreR * 0.25, y: center.y - coreR * 0.25)
-            gCtx.draw(path, with: .radialGradient(grad, center: highlightCenter, startRadius: 0, endRadius: coreR))
+            let coreShading: GraphicsContext.Shading = .radialGradient(
+                grad, center: highlightCenter, startRadius: 0, endRadius: coreR
+            )
+            gCtx.fill(path, with: coreShading)
 
-            var rim = Path()
             let inset = rect.insetBy(dx: coreR * 0.15, dy: coreR * 0.15)
-            rim.addEllipse(in: inset)
-            gCtx.draw(rim, with: .color(glow.opacity(0.25)))
+            let rimPath = Path(ellipseIn: inset)
+            let rimShading: GraphicsContext.Shading = .color(glow.opacity(0.25))
+            gCtx.stroke(rimPath, with: rimShading, lineWidth: 1)
         }
     }
 }
@@ -244,7 +252,7 @@ private struct HighlightLayer: View {
     let size: CGFloat
 
     var body: some View {
-        Canvas { ctx, sz in
+        Canvas { gCtx, sz in
             let center = CGPoint(x: sz.width / 2, y: sz.height / 2)
             let r = size * 0.4 * 0.6
             let hx = center.x - r * 0.35
@@ -254,8 +262,13 @@ private struct HighlightLayer: View {
             let rect = CGRect(x: hx - hw, y: hy - hh, width: hw * 2, height: hh * 2)
             let path = Path(ellipseIn: rect)
             let grad = Gradient(colors: [Color.white.opacity(0.6), Color.white.opacity(0)])
-            gCtx.draw(path, with: .radialGradient(grad, center: CGPoint(x: rect.midX, y: rect.midY),
-                                                  startRadius: 0, endRadius: rect.width / 2))
+            let shading: GraphicsContext.Shading = .radialGradient(
+                grad,
+                center: CGPoint(x: rect.midX, y: rect.midY),
+                startRadius: 0,
+                endRadius: rect.width / 2
+            )
+            gCtx.fill(path, with: shading)
         }
         .frame(width: size, height: size)
         .blendMode(.screen)
@@ -272,7 +285,7 @@ private struct WaveformLayer: View {
             let t = ctx.date.timeIntervalSinceReferenceDate
             let glow = NethTheme.glowColor(for: state)
             let amplitude: CGFloat = state == .generating ? 1.0 : 0.6
-            WaveformCanvas(t: t, glow: glow, amplitude: amplitude, size: size)
+            WaveformCanvas(t: t, glow: glow, amplitude: amplitude)
                 .frame(width: size, height: size)
         }
     }
@@ -282,7 +295,6 @@ private struct WaveformCanvas: View {
     let t: Double
     let glow: Color
     let amplitude: CGFloat
-    let size: CGFloat
 
     var body: some View {
         Canvas { gCtx, sz in
@@ -293,20 +305,17 @@ private struct WaveformCanvas: View {
             let total = CGFloat(bars) * (barWidth + gap)
             let sx = center.x - total / 2
             for i in 0..<bars {
-                drawBar(gCtx: gCtx, i: i, sx: sx, center: center, barWidth: barWidth, gap: gap)
+                let phase = Double(i) / 28.0
+                let wave = sin(t * 6 + phase * 2 * .pi * 2)
+                let env = sin(phase * .pi)
+                let h: CGFloat = 8 + 28 * abs(CGFloat(wave)) * CGFloat(env) * amplitude
+                let x = sx + CGFloat(i) * (barWidth + gap)
+                let rect = CGRect(x: x, y: center.y - h / 2, width: barWidth, height: h)
+                let path = Path(roundedRect: rect, cornerRadius: 1)
+                let shading: GraphicsContext.Shading = .color(glow.opacity(0.95))
+                gCtx.fill(path, with: shading)
             }
         }
-    }
-
-    private func drawBar(gCtx: GraphicsContext, i: Int, sx: CGFloat, center: CGPoint, barWidth: CGFloat, gap: CGFloat) {
-        let phase = Double(i) / 28.0
-        let wave = sin(t * 6 + phase * 2 * .pi * 2)
-        let env = sin(phase * .pi)
-        let h: CGFloat = 8 + 28 * abs(CGFloat(wave)) * CGFloat(env) * amplitude
-        let x = sx + CGFloat(i) * (barWidth + gap)
-        let rect = CGRect(x: x, y: center.y - h / 2, width: barWidth, height: h)
-        let path = Path(roundedRect: rect, cornerRadius: 1)
-        gCtx.draw(path, with: .color(glow.opacity(0.95)))
     }
 }
 

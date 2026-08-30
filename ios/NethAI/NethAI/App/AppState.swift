@@ -79,9 +79,13 @@ final class AppState {
     }
 }
 
-struct AttachedImage: Identifiable, Sendable {
+struct AttachedImage: Identifiable, Sendable, Equatable {
     let id = UUID()
     let imageData: Data
     let thumbnail: Data?
     var caption: String?
+
+    static func == (lhs: AttachedImage, rhs: AttachedImage) -> Bool {
+        lhs.id == rhs.id
+    }
 }
