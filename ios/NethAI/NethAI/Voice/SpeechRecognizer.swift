@@ -85,14 +85,15 @@ final class SpeechRecognizer: NSObject, ObservableObject {
         inputNode.installTap(onBus: 0, bufferSize: 1024, format: recordingFormat) { buffer, _ in
             self.recognitionRequest?.append(buffer)
             // measure RMS for orb reactivity
-            buffer.frameLength = 1024
-            let channelData = buffer.floatChannelData?[0]
-            var sum: Float = 0
-            if let channelData {
-                for i in 0..<Int(buffer.frameLength) {
-                    sum += channelData[i] * channelData[i]
+            let frameLen = Int(buffer.frameLength)
+            guard frameLen > 0 else { return }
+            if let channelData = buffer.floatChannelData?[0] {
+                var sum: Float = 0
+                for i in 0..<frameLen {
+                    let v = channelData[i]
+                    sum += v * v
                 }
-                let rms = sqrt(sum / Float(buffer.frameLength))
+                let rms = sqrt(sum / Float(frameLen))
                 DispatchQueue.main.async {
                     self.audioLevel = min(1.0, rms * 60)
                 }

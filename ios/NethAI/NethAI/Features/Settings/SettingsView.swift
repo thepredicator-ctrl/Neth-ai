@@ -24,10 +24,12 @@ struct SettingsView: View {
                     Toggle("Enable local API (Ollama-style)", isOn: $localAPIEnabled)
                         .onChange(of: localAPIEnabled) { _, v in
                             appState.localAPIEnabled = v
-                            if v {
-                                Task { try? await LocalAPIServer.shared.start(port: appState.localAPIPort) }
-                            } else {
-                                await LocalAPIServer.shared.stop()
+                            Task {
+                                if v {
+                                    try? await LocalAPIServer.shared.start(port: appState.localAPIPort)
+                                } else {
+                                    await LocalAPIServer.shared.stop()
+                                }
                             }
                         }
                     LabeledContent("API port", value: "\(appState.localAPIPort)")

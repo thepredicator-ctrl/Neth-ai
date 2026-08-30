@@ -106,7 +106,7 @@ final class LlamaEngine: LLMEngine, @unchecked Sendable {
                 self.generatedTokenCount = 0
 
                 do {
-                    let stream = actor.generate(prompt: prompt, params: sampling)
+                    let stream = await actor.generate(prompt: prompt, params: sampling)
                     for try await token in stream {
                         self.generatedTokenCount += 1
                         if self.firstTokenTime == nil {
@@ -135,8 +135,8 @@ final class LlamaEngine: LLMEngine, @unchecked Sendable {
         let now = ContinuousClock.now
         let start = generationStart ?? now
         let firstTok = firstTokenTime ?? now
-        let ttft = start.duration(to: firstTok).components.seconds
-        let totalDur = start.duration(to: now).components.seconds
+        let ttft = durationSeconds(from: start, to: firstTok)
+        let totalDur = durationSeconds(from: start, to: now)
         let toks = generatedTokenCount
         let tps = totalDur > 0 ? Double(toks) / totalDur : 0
         let mem = reportResidentMemoryMB()
@@ -150,6 +150,11 @@ final class LlamaEngine: LLMEngine, @unchecked Sendable {
             memoryResidentMB: mem,
             metalAccelerated: metalAccelerated
         )
+    }
+
+    private func durationSeconds(from a: ContinuousClock.Instant, to b: ContinuousClock.Instant) -> Double {
+        let comps = a.duration(to: b).components
+        return Double(comps.seconds) + Double(comps.attoseconds) * 1e-18
     }
 
     private func reportResidentMemoryMB() -> Double {

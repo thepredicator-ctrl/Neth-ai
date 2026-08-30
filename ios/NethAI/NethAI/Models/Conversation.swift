@@ -1,6 +1,6 @@
 import Foundation
 
-struct Conversation: Identifiable, Codable, Sendable, Hashable {
+struct Conversation: Identifiable, Codable, Sendable {
     var id: UUID
     var title: String
     var messages: [ChatMessage]

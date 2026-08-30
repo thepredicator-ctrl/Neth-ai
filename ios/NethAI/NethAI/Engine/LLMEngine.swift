@@ -2,7 +2,7 @@ import Foundation
 
 // MARK: - Inference stats (real measured values, never fabricated)
 
-struct InferenceStats: Sendable {
+struct InferenceStats: Sendable, Codable {
     let tokensPerSecond: Double
     let timeToFirstToken: Double      // seconds
     let totalTokens: Int

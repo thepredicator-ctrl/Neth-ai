@@ -369,7 +369,7 @@ struct AssistantView: View {
         appState.inferenceStats = nil
 
         // Build conversation history + prompt
-        let convo = appState.currentConversation ?? createConversation()
+        var convo = appState.currentConversation ?? createConversation()
         let history = convo.messages
         let userMsg = ChatMessage(role: .user, content: prompt, images: images.attachedImages.map { $0.imageData })
         convo.messages.append(userMsg)
