@@ -1,0 +1,126 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag (e.g. v0.1.0)"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  build-ios:
+    uses: ./.github/workflows/build-ios.yml
+    secrets: inherit
+
+  build-windows:
+    uses: ./.github/workflows/build-windows.yml
+    secrets: inherit
+
+  release:
+    needs: [build-ios, build-windows]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Determine tag
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="${{ inputs.tag }}"
+          else
+            TAG="${GITHUB_REF#refs/tags/}"
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "Releasing $TAG"
+
+      - name: Download iOS IPA artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: Neth-AI-iOS-unsigned-ipa
+          path: release
+
+      - name: Download Windows EXE artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: Neth-AI-Windows-x64-exe
+          path: release
+
+      - name: Generate checksums
+        working-directory: release
+        run: |
+          ls -la
+          sha256sum Neth-AI-iOS-unsigned.ipa Neth-AI-Windows-x64.exe > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      - name: Verify both binaries present
+        working-directory: release
+        run: |
+          for f in Neth-AI-iOS-unsigned.ipa Neth-AI-Windows-x64.exe; do
+            if [ ! -f "$f" ]; then
+              echo "MISSING: $f"
+              exit 1
+            fi
+            SIZE=$(stat -c%s "$f")
+            echo "$f : $SIZE bytes"
+            if [ "$SIZE" -lt 50000 ]; then
+              echo "TOO SMALL: $f"
+              exit 1
+            fi
+          done
+
+      - name: Create or update Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          name: Neth-AI ${{ steps.tag.outputs.tag }}
+          draft: false
+          prerelease: false
+          body: |
+            # Neth-AI ${{ steps.tag.outputs.tag }}
+
+            Black + glowing-orange cross-platform local AI assistant.
+
+            ## Downloads
+
+            | File | Platform | Notes |
+            |---|---|---|
+            | `Neth-AI-iOS-unsigned.ipa` | iPadOS / iOS 17+ | **Unsigned** — see below |
+            | `Neth-AI-Windows-x64.exe` | Windows 10/11 x64 | Standalone executable |
+
+            ## iPadOS — unsigned IPA
+
+            This IPA is **unsigned**. You must sign or sideload it before installation:
+
+            - Sideloadly (free, 7-day cert)
+            - AltStore / SideStore
+            - Apple Developer account + `codesign`
+            - TrollStore (on supported iOS versions)
+
+            We do not bypass Apple's signing/security mechanisms.
+
+            ## Windows
+
+            `Neth-AI-Windows-x64.exe` is a standalone PyInstaller bundle. Windows
+            SmartScreen may warn on first run — click "More info" → "Run anyway".
+
+            ## Install a model
+
+            Both platforms accept standard GGUF model files (Q4_K_M recommended).
+            Use the Models tab to import.
+
+            ## Verification
+
+            See `SHA256SUMS.txt` for checksums.
+          files: |
+            release/Neth-AI-iOS-unsigned.ipa
+            release/Neth-AI-Windows-x64.exe
+            release/SHA256SUMS.txt

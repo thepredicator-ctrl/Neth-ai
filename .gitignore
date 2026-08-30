@@ -1,0 +1,63 @@
+# macOS
+.DS_Store
+*.swp
+
+# Xcode
+ios/NethAI/build/
+ios/NethAI/Build/
+ios/NethAI/DerivedData/
+ios/NethAI/*.xcuserstate
+ios/NethAI/xcuserdata/
+ios/NethAI/.swiftpm/
+ios/NethAI/Package.resolved
+ios/build/
+build/
+DerivedData/
+
+# Windows / Python
+windows/NethAI/__pycache__/
+windows/NethAI/*.pyc
+windows/NethAI/build/
+windows/NethAI/dist/
+windows/NethAI/.venv/
+windows/NethAI/venv/
+windows/NethAI/env/
+*.pyc
+__pycache__/
+*.spec.bak
+
+# Models - NEVER commit GGUF/model files
+models/*.gguf
+models/*.bin
+models/*.safetensors
+models/*.gguf.tmp
+*.gguf
+*.gguf.tmp
+
+# Logs
+*.log
+logs/
+
+# IDE
+.vscode/
+.idea/
+*.iml
+
+# Secrets - NEVER commit credentials
+.env
+.env.local
+*.pem
+*.p12
+*.mobileprovision
+secrets/
+*.key
+
+# Build artifacts
+*.ipa
+*.app
+*.exe
+*.dmg
+*.msi
+*.pkg
+release/
+output/

@@ -1,0 +1,85 @@
+name: NethAI
+options:
+  bundleIdPrefix: ai.neth
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+  groupSortPosition: top
+
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    DEVELOPMENT_TEAM: ""
+    CODE_SIGNING_REQUIRED: "NO"
+    CODE_SIGNING_ALLOWED: "NO"
+    CODE_SIGN_IDENTITY: ""
+    ENABLE_BITCODE: "NO"
+    SWIFT_TREAT_WARNINGS_AS_ERRORS: "NO"
+    GCC_TREAT_WARNINGS_AS_ERRORS: "NO"
+    ENABLE_USER_SCRIPT_SANDBOXING: "NO"
+    METAL_ENABLE_DEBUG_INFO: "NO"
+
+packages:
+  SwiftLlama:
+    url: https://github.com/profclaw/swift-llama.git
+    from: "0.1.0"
+
+targets:
+  NethAI:
+    type: application
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: NethAI
+    resources:
+      - path: NethAI/Resources
+        optional: true
+    info:
+      path: NethAI/Info.plist
+      properties:
+        CFBundleDisplayName: Neth-AI
+        CFBundleShortVersionString: "0.1.0"
+        CFBundleVersion: "1"
+        UILaunchScreen:
+          UIColorName: "NethBlack"
+        UIRequiredDeviceCapabilities:
+          - arm64
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        NSMicrophoneUsageDescription: "Neth-AI uses the microphone to listen to your voice for on-device speech recognition."
+        NSSpeechRecognitionUsageDescription: "Neth-AI uses speech recognition to transcribe your voice locally on-device."
+        NSCameraUsageDescription: "Neth-AI can capture photos from the camera to send to vision-capable models."
+        NSPhotoLibraryUsageDescription: "Neth-AI can read images you select from Photos to send to vision-capable models."
+        NSPhotoLibraryAddUsageDescription: "Neth-AI can save images to your Photos library."
+        NSLocalNetworkUsageDescription: "Neth-AI can connect to a Neth-AI PC server on your local network for inference."
+        UIFileSharingEnabled: true
+        LSSupportsOpeningDocumentsInPlace: true
+        UISupportsDocumentBrowser: true
+        CFBundleDocumentTypes:
+          - CFBundleTypeName: GGUF Model
+            CFBundleTypeRole: Editor
+            LSHandlerRank: Owner
+            LSItemContentTypes:
+              - public.data
+        UIApplicationSupportsIndirectInputEvents: true
+        UIBackgroundModes:
+          - audio
+        UIUserInterfaceStyle: Dark
+        ITSAppUsesNonExemptEncryption: false
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: ai.neth.NethAI
+        INFOPLIST_KEY_UIRequiresFullScreen: "NO"
+        TARGETED_DEVICE_FAMILY: "1,2"
+        SUPPORTS_MACCATALYST: "NO"
+        ENABLE_PREVIEWS: "YES"
+        GENERATE_INFOPLIST_FILE: "NO"
+    dependencies:
+      - package: SwiftLlama

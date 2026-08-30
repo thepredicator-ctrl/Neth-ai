@@ -1,0 +1,122 @@
+name: Build iOS (unsigned IPA)
+
+on:
+  push:
+    tags: ["v*.*.*"]
+    paths:
+      - "ios/**"
+      - ".github/workflows/build-ios.yml"
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  build-ios:
+    runs-on: macos-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: |
+          sudo xcode-select -s /Applications/Xcode.app
+          xcodebuild -version
+          xcodebuild -showsdks | head -40
+
+      - name: Install xcodegen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        working-directory: ios/NethAI
+        run: |
+          xcodegen generate 2>&1
+          ls -la
+          ls -la NethAI.xcodeproj
+
+      - name: Resolve Swift packages
+        working-directory: ios/NethAI
+        run: |
+          xcodebuild -resolvePackageDependencies -project NethAI.xcodeproj -scheme NethAI -configuration Release 2>&1 | tail -30 || true
+
+      - name: Build (Release, no code signing)
+        working-directory: ios/NethAI
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project NethAI.xcodeproj \
+            -scheme NethAI \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGN_ENTITLEMENTS="" \
+            DEVELOPMENT_TEAM="" \
+            PROVISIONING_PROFILE_SPECIFIER="" \
+            ENABLE_BITCODE=NO \
+            CONFIGURATION_BUILD_DIR="$(pwd)/build" \
+            build 2>&1 | tee build.log | tail -80
+
+      - name: Show build log on failure
+        if: failure()
+        working-directory: ios/NethAI
+        run: |
+          echo "=== BUILD LOG (last 200 lines) ==="
+          tail -200 build.log || true
+
+      - name: Locate .app
+        working-directory: ios/NethAI
+        run: |
+          echo "Build dir listing:"
+          ls -la build || true
+          APP=$(find build -name "NethAI.app" -type d | head -1)
+          echo "APP=$APP"
+          if [ -z "$APP" ]; then echo "NethAI.app not found"; exit 1; fi
+          echo "$APP" > /tmp/app_path.txt
+
+      - name: Create unsigned IPA
+        working-directory: ios/NethAI
+        run: |
+          APP=$(cat /tmp/app_path.txt)
+          echo "Bundling $APP into IPA..."
+          STAGING=Payload
+          rm -rf "$STAGING"
+          mkdir -p "$STAGING"
+          cp -R "$APP" "$STAGING/"
+          # remove code signature (it's unsigned)
+          rm -rf "$STAGING/NethAI.app/_CodeSignature" || true
+          # ensure Info.plist is at the root of the .app
+          ls "$STAGING/NethAI.app/Info.plist" || cp NethAI/Info.plist "$STAGING/NethAI.app/Info.plist"
+          # zip into .ipa
+          rm -f Neth-AI-iOS-unsigned.ipa
+          zip -r -X Neth-AI-iOS-unsigned.ipa "$STAGING"
+          ls -la Neth-AI-iOS-unsigned.ipa
+          unzip -l Neth-AI-iOS-unsigned.ipa | head -20
+
+      - name: Verify IPA
+        working-directory: ios/NethAI
+        run: |
+          if [ ! -f Neth-AI-iOS-unsigned.ipa ]; then
+            echo "IPA not found"; exit 1
+          fi
+          SIZE=$(stat -f%z Neth-AI-iOS-unsigned.ipa)
+          echo "IPA size: $SIZE bytes"
+          if [ "$SIZE" -lt 100000 ]; then
+            echo "IPA too small, likely broken"; exit 1
+          fi
+          unzip -l Neth-AI-iOS-unsigned.ipa | grep "Payload/NethAI.app/NethAI" || {
+            echo "Executable missing from IPA"; exit 1
+          }
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Neth-AI-iOS-unsigned-ipa
+          path: ios/NethAI/Neth-AI-iOS-unsigned.ipa
+          if-no-files-found: error
+          retention-days: 30
