@@ -47,8 +47,8 @@ targets:
       path: NethAI/Info.plist
       properties:
         CFBundleDisplayName: Neth-AI
-        CFBundleShortVersionString: "0.3.1"
-        CFBundleVersion: "4"
+        CFBundleShortVersionString: "0.4.0"
+        CFBundleVersion: "5"
         UILaunchScreen:
           UIColorName: "NethBlack"
         UIRequiredDeviceCapabilities:

@@ -131,7 +131,7 @@ struct SettingsView: View {
 
                     Section {
                         row("App", value: "Neth-AI")
-                        row("Version", value: "0.3.1")
+                        row("Version", value: "0.4.0")
                         row("Engine", value: "llama.cpp")
                         row("Platforms", value: "iPadOS / iOS 17+")
                     } header: {

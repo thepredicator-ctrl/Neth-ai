@@ -629,32 +629,24 @@ struct AssistantView: View {
 struct NethBackground: View {
     var body: some View {
         ZStack {
-            NethTheme.voidBlack
+            // Audi-style dark metallic gradient
+            LinearGradient(
+                colors: [
+                    Color(hex: 0x0A0A0A),
+                    Color(hex: 0x141414),
+                    Color(hex: 0x0A0A0A)
+                ],
+                startPoint: .top, endPoint: .bottom
+            )
+            .ignoresSafeArea()
 
-            // Top orange ambient glow
+            // Top red ambient glow
             RadialGradient(
-                colors: [NethTheme.orange.opacity(0.08), .clear],
+                colors: [NethTheme.orange.opacity(0.06), .clear],
                 center: .top,
                 startRadius: 0,
                 endRadius: 600
             )
-            .ignoresSafeArea()
-
-            // Bottom subtle warmth
-            RadialGradient(
-                colors: [NethTheme.orangeDeep.opacity(0.04), .clear],
-                center: .bottom,
-                startRadius: 0,
-                endRadius: 400
-            )
-            .ignoresSafeArea()
-
-            // Fine noise/grain (subtle)
-            LinearGradient(
-                colors: [NethTheme.charcoal.opacity(0.3), .clear],
-                startPoint: .top, endPoint: .bottom
-            )
-            .opacity(0.3)
             .ignoresSafeArea()
         }
     }

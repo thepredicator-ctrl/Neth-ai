@@ -1,39 +1,46 @@
 import SwiftUI
 
-// MARK: - Neth-AI Design Identity
-// Deep black + charcoal + vivid glowing orange + amber + subtle white.
-// No blue. No corporate. Pure futuristic AI device.
+// MARK: - Neth-AI Design Identity — Audi Red / Grey / Silver
+// Premium automotive aesthetic: deep red core, brushed silver rings,
+// metallic grey panels, sharp minimal lines. No gradients where avoidable.
 
 enum NethTheme {
-    // Backgrounds
-    static let black = Color(hex: 0x050505)
+    // Backgrounds — metallic dark greys
+    static let black = Color(hex: 0x0A0A0A)
     static let voidBlack = Color(hex: 0x000000)
-    static let charcoal = Color(hex: 0x121212)
-    static let charcoalRaised = Color(hex: 0x1A1A1A)
-    static let panelDark = Color(hex: 0x0E0E0E)
+    static let charcoal = Color(hex: 0x1A1A1A)
+    static let charcoalRaised = Color(hex: 0x242424)
+    static let panelDark = Color(hex: 0x141414)
+    static let panelMetal = Color(hex: 0x1E1E1E)
 
-    // Glow
-    static let orange = Color(hex: 0xFF7A18)
-    static let orangeBright = Color(hex: 0xFF9A3C)
-    static let orangeDeep = Color(hex: 0xE05A0A)
-    static let amber = Color(hex: 0xFFB347)
-    static let ember = Color(hex: 0xFFD27A)
+    // Primary — Audi red
+    static let orange = Color(hex: 0xCC0000)        // Audi red (kept name for compat)
+    static let orangeBright = Color(hex: 0xE2001A)  // brighter red
+    static let orangeDeep = Color(hex: 0x8B0000)    // dark red
+    static let amber = Color(hex: 0xFF3333)         // light red
+    static let ember = Color(hex: 0xFF6666)         // pale red
+
+    // Silver / metallic
+    static let silver = Color(hex: 0xC0C0C0)
+    static let silverBright = Color(hex: 0xE8E8E8)
+    static let silverDark = Color(hex: 0x808080)
+    static let steel = Color(hex: 0x4A4A4A)
 
     // Text
-    static let textPrimary = Color(hex: 0xF4F4F4)
-    static let textSecondary = Color(hex: 0xA8A8A8)
-    static let textTertiary = Color(hex: 0x6E6E6E)
+    static let textPrimary = Color(hex: 0xF5F5F5)
+    static let textSecondary = Color(hex: 0xB0B0B0)
+    static let textTertiary = Color(hex: 0x707070)
 
     // Lines / dividers
-    static let hairline = Color(hex: 0x2A2A2A)
-    static let hairlineWarm = Color(hex: 0x3A2418)
+    static let hairline = Color(hex: 0x333333)
+    static let hairlineWarm = Color(hex: 0x4A2020)
 
     // Status
-    static let errorGlow = Color(hex: 0xFF5A2A)
+    static let errorGlow = Color(hex: 0xFF0000)
 
     // Fonts
-    static let displayFont = Font.system(.largeTitle, design: .rounded).weight(.bold)
-    static let titleFont = Font.system(.title2, design: .rounded).weight(.semibold)
+    static let displayFont = Font.system(.largeTitle, design: .default).weight(.bold)
+    static let titleFont = Font.system(.title2, design: .default).weight(.semibold)
     static let bodyFont = Font.system(.body, design: .default)
     static let monoFont = Font.system(.caption, design: .monospaced)
 

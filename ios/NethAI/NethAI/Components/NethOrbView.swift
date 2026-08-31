@@ -126,7 +126,14 @@ private struct RingsCanvas: View {
             dashPhase: CGFloat(phase) * radius
         )
 
-        let grad = Gradient(colors: [glow.opacity(0.95), glow.opacity(0.15)])
+        // Silver metallic ring gradient
+        let ringColors: [Color]
+        switch i {
+        case 0:  ringColors = [NethTheme.silverBright, NethTheme.silverDark]
+        case 1:  ringColors = [NethTheme.silver, NethTheme.steel]
+        default: ringColors = [NethTheme.silverDark, NethTheme.steel]
+        }
+        let grad = Gradient(colors: [ringColors[0].opacity(0.95), ringColors[1].opacity(0.15)])
         let shading: GraphicsContext.Shading = .linearGradient(
             grad,
             startPoint: CGPoint(x: center.x - radius, y: center.y - radius),
