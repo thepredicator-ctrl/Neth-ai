@@ -1,6 +1,7 @@
 import Foundation
 import AuthenticationServices
 import SwiftUI
+import os.log
 
 // MARK: - NethUser
 struct NethUser: Identifiable, Codable, Sendable {
@@ -16,12 +17,15 @@ enum AuthError: LocalizedError {
     case cancelled
     case failed(String)
     case notAvailable
+    case unsignedBuild
 
     var errorDescription: String? {
         switch self {
         case .cancelled: return "Sign in was cancelled."
         case .failed(let m): return m
-        case .notAvailable: return "Sign in with Apple is not available. This build may need a proper signing certificate."
+        case .notAvailable: return "Sign in with Apple is not available on this device."
+        case .unsignedBuild:
+            return "This IPA is unsigned. Sign in with Apple requires a valid Apple Developer certificate. Use 'Continue as Guest' instead."
         }
     }
 }
@@ -34,12 +38,22 @@ final class AuthService: NSObject, ObservableObject, ASAuthorizationControllerDe
     @Published var currentUser: NethUser?
     @Published var isLoading: Bool = false
     @Published var error: String?
+    @Published var signInWithAppleAvailable: Bool = false
 
+    // CRITICAL: retain the controller for the duration of the sign-in flow.
+    // If it's deallocated mid-flow, the ASAuthorizationController sheet
+    // dismisses silently and the user sees "nothing happened".
+    private var currentController: ASAuthorizationController?
+
+    private let logger = Logger(subsystem: "ai.neth.NethAI", category: "AuthService")
     private let userDefaultsKey = "ai.neth.NethAI.currentUser"
     private let iCloudKey = "ai.neth.NethAI.currentUser"
 
     override init() {
         super.init()
+        // Detect signing status: Sign in with Apple only works on properly signed builds
+        signInWithAppleAvailable = CodeSigningChecker.hasSignInWithAppleEntitlement
+        logger.info("Sign in with Apple available: \(self.signInWithAppleAvailable)")
         loadUser()
     }
 
@@ -50,8 +64,9 @@ final class AuthService: NSObject, ObservableObject, ASAuthorizationControllerDe
     // MARK: Persistence
 
     private func loadUser() {
-        // Try iCloud KV store first (syncs across devices)
-        if let data = NSUbiquitousKeyValueStore.default.data(forKey: iCloudKey),
+        // Try iCloud KV store first (syncs across devices) — only works on signed builds
+        if CodeSigningChecker.hasICloudEntitlement,
+           let data = NSUbiquitousKeyValueStore.default.data(forKey: iCloudKey),
            let user = try? JSONDecoder().decode(NethUser.self, from: data) {
             self.currentUser = user
             return
@@ -65,20 +80,30 @@ final class AuthService: NSObject, ObservableObject, ASAuthorizationControllerDe
 
     private func saveUser(_ user: NethUser?) {
         let data = try? JSONEncoder().encode(user)
-        // Save to UserDefaults (local)
+        // Save to UserDefaults (local — always works)
         if let data {
             UserDefaults.standard.set(data, forKey: userDefaultsKey)
         } else {
             UserDefaults.standard.removeObject(forKey: userDefaultsKey)
         }
-        // Save to iCloud KV store (syncs across devices with same Apple ID)
-        NSUbiquitousKeyValueStore.default.set(data, forKey: iCloudKey)
-        NSUbiquitousKeyValueStore.default.synchronize()
+        // Save to iCloud KV store (only if entitlement is present)
+        if CodeSigningChecker.hasICloudEntitlement {
+            NSUbiquitousKeyValueStore.default.set(data, forKey: iCloudKey)
+            NSUbiquitousKeyValueStore.default.synchronize()
+        }
     }
 
     // MARK: Sign in with Apple
 
     func signInWithApple() {
+        // Pre-check: is Sign in with Apple actually available on this build?
+        if !signInWithAppleAvailable {
+            let reason = CodeSigningChecker.signInWithAppleUnavailableReason ?? "Sign in with Apple is not available."
+            logger.error("Sign in with Apple unavailable: \(reason)")
+            self.error = reason
+            return
+        }
+
         isLoading = true
         error = nil
 
@@ -89,6 +114,8 @@ final class AuthService: NSObject, ObservableObject, ASAuthorizationControllerDe
         let controller = ASAuthorizationController(authorizationRequests: [request])
         controller.delegate = self
         controller.presentationContextProvider = self
+        // CRITICAL: retain the controller so it doesn't get deallocated mid-flow
+        self.currentController = controller
         controller.performRequests()
     }
 
@@ -109,11 +136,16 @@ final class AuthService: NSObject, ObservableObject, ASAuthorizationControllerDe
         saveUser(nil)
     }
 
+    func clearError() {
+        self.error = nil
+    }
+
     // MARK: ASAuthorizationControllerDelegate
 
     nonisolated func authorizationController(controller: ASAuthorizationController, didCompleteWithAuthorization authorization: ASAuthorization) {
         Task { @MainActor in
             self.isLoading = false
+            self.currentController = nil
 
             if let credential = authorization.credential as? ASAuthorizationAppleIDCredential {
                 let displayName: String
@@ -133,6 +165,7 @@ final class AuthService: NSObject, ObservableObject, ASAuthorizationControllerDe
                 )
                 self.currentUser = user
                 self.saveUser(user)
+                self.logger.info("Sign in with Apple succeeded for user: \(user.id)")
             }
         }
     }
@@ -140,8 +173,32 @@ final class AuthService: NSObject, ObservableObject, ASAuthorizationControllerDe
     nonisolated func authorizationController(controller: ASAuthorizationController, didCompleteWithError error: Error) {
         Task { @MainActor in
             self.isLoading = false
-            if let asErr = error as? ASAuthorizationError, asErr.code == .canceled {
-                self.error = nil // silent on cancel
+            self.currentController = nil
+
+            // Map the error to a user-friendly message
+            if let asErr = error as? ASAuthorizationError {
+                switch asErr.code {
+                case .canceled:
+                    // User cancelled — silent
+                    self.error = nil
+                    self.logger.info("Sign in with Apple cancelled by user")
+                case .failed:
+                    self.error = "Sign in with Apple failed. This usually means the app is not properly signed with an Apple Developer certificate. Use 'Continue as Guest' instead, or sign the IPA with your own developer account."
+                    self.logger.error("ASAuthorizationError.failed: \(error.localizedDescription)")
+                case .invalidated:
+                    self.error = "Your Sign in with Apple credential was invalidated. Please try again."
+                case .notHandled:
+                    self.error = "Sign in with Apple request was not handled. Please try again."
+                case .notInteractive:
+                    self.error = "Sign in with Apple cannot be shown right now. Please try again."
+                case .unknown:
+                    self.error = "Sign in with Apple failed with an unknown error. The app may not be properly signed. Use 'Continue as Guest' instead."
+                    self.logger.error("ASAuthorizationError.unknown: \(error.localizedDescription)")
+                case .credentialMissing:
+                    self.error = "Sign in with Apple credential is missing. Please try again."
+                @unknown default:
+                    self.error = "Sign in with Apple failed: \(error.localizedDescription)"
+                }
             } else {
                 self.error = error.localizedDescription
             }
@@ -151,20 +208,31 @@ final class AuthService: NSObject, ObservableObject, ASAuthorizationControllerDe
     // MARK: ASAuthorizationControllerPresentationContextProviding
 
     nonisolated func presentationAnchor(for controller: ASAuthorizationController) -> ASPresentationAnchor {
-        // Return the first window scene's main window.
-        // This is called on the main thread by the system, so it's safe to access UIKit here.
+        // Called on main thread by the system.
         if Thread.isMainThread {
-            return UIApplication.shared.connectedScenes
-                .compactMap { $0 as? UIWindowScene }
-                .flatMap { $0.windows }
-                .first { $0.isKeyWindow } ?? ASPresentationAnchor()
+            return findKeyWindow() ?? ASPresentationAnchor()
         }
         // Fallback: dispatch sync to main thread
-        return DispatchQueue.main.sync {
-            UIApplication.shared.connectedScenes
-                .compactMap { $0 as? UIWindowScene }
-                .flatMap { $0.windows }
-                .first { $0.isKeyWindow } ?? ASPresentationAnchor()
+        var anchor = ASPresentationAnchor()
+        DispatchQueue.main.sync {
+            anchor = self.findKeyWindow() ?? ASPresentationAnchor()
         }
+        return anchor
+    }
+
+    @MainActor
+    private func findKeyWindow() -> ASPresentationAnchor? {
+        // iOS 15+: use connectedScenes
+        for scene in UIApplication.shared.connectedScenes {
+            guard let windowScene = scene as? UIWindowScene else { continue }
+            for window in windowScene.windows where window.isKeyWindow {
+                return window
+            }
+            // If no key window, return the first window
+            if let first = windowScene.windows.first {
+                return first
+            }
+        }
+        return nil
     }
 }
