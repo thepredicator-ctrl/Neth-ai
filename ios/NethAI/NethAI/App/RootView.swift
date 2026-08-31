@@ -28,12 +28,15 @@ struct RootView: View {
     }
 
     var body: some View {
-        ZStack {
-            NethTheme.voidBlack.ignoresSafeArea()
+        GeometryReader { geo in
+            ZStack {
+                NethTheme.voidBlack.ignoresSafeArea()
 
-            VStack(spacing: 0) {
-                content
-                NethTabBar(selectedTab: $selectedTab)
+                VStack(spacing: 0) {
+                    content
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    NethTabBar(selectedTab: $selectedTab)
+                }
             }
         }
         .tint(NethTheme.orange)
@@ -63,29 +66,44 @@ struct NethTabBar: View {
                     .frame(maxWidth: .infinity)
             }
         }
-        .padding(.top, 10)
-        .padding(.bottom, 6)
+        .padding(.top, 12)
+        .padding(.bottom, 8)
         .background(
-            NethTheme.charcoal
-                .overlay(Rectangle().fill(NethTheme.hairline).frame(height: 0.5), alignment: .top)
-                .ignoresSafeArea(edges: .bottom)
+            ZStack {
+                NethTheme.charcoal
+                LinearGradient(
+                    colors: [NethTheme.orange.opacity(0.05), .clear],
+                    startPoint: .top, endPoint: .bottom
+                )
+            }
+            .overlay(Rectangle().fill(NethTheme.hairline).frame(height: 0.5), alignment: .top)
+            .ignoresSafeArea(edges: .bottom)
         )
     }
 
     private func tabItem(_ tab: RootView.Tab) -> some View {
         Button {
-            withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
                 selectedTab = tab
             }
         } label: {
-            VStack(spacing: 4) {
-                Image(systemName: tab.icon)
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(selectedTab == tab ? NethTheme.orange : NethTheme.textTertiary)
-                    .shadow(color: selectedTab == tab ? NethTheme.orange.opacity(0.6) : .clear, radius: 6, y: 1)
+            VStack(spacing: 5) {
+                ZStack {
+                    if selectedTab == tab {
+                        Circle()
+                            .fill(NethTheme.orange.opacity(0.15))
+                            .frame(width: 36, height: 36)
+                            .blur(radius: 4)
+                    }
+                    Image(systemName: tab.icon)
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(selectedTab == tab ? NethTheme.orange : NethTheme.textTertiary)
+                        .scaleEffect(selectedTab == tab ? 1.05 : 1.0)
+                }
                 Text(tab.label)
-                    .font(.caption2)
+                    .font(.system(size: 10, weight: .semibold))
                     .foregroundStyle(selectedTab == tab ? NethTheme.textPrimary : NethTheme.textTertiary)
+                    .tracking(0.5)
             }
             .padding(.vertical, 6)
             .contentShape(Rectangle())

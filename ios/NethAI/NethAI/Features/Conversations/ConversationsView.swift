@@ -16,31 +16,45 @@ struct ConversationsView: View {
 
     var body: some View {
         NavigationStack {
-            List {
-                if filtered.isEmpty {
-                    Text("No conversations yet. Start one from the Assistant tab.")
-                        .foregroundStyle(NethTheme.textSecondary)
-                } else {
-                    ForEach(filtered) { convo in
-                        NavigationLink {
-                            ConversationDetailView(conversation: convo)
-                        } label: {
-                            ConversationRow(conversation: convo)
-                        }
-                        .contextMenu {
-                            Button("Rename") {
-                                renaming = convo
-                                renameText = convo.title
+            ZStack {
+                NethTheme.voidBlack.ignoresSafeArea()
+
+                Group {
+                    if filtered.isEmpty {
+                        emptyState
+                    } else {
+                        List {
+                            ForEach(filtered) { convo in
+                                NavigationLink {
+                                    ConversationDetailView(conversation: convo)
+                                } label: {
+                                    ConversationRow(conversation: convo)
+                                }
+                                .listRowBackground(NethTheme.charcoal.opacity(0.4))
+                                .listRowSeparatorTint(NethTheme.hairline)
+                                .contextMenu {
+                                    Button {
+                                        renaming = convo
+                                        renameText = convo.title
+                                    } label: {
+                                        Label("Rename", systemImage: "pencil")
+                                    }
+                                    Button(role: .destructive) {
+                                        Task { await delete(convo) }
+                                    } label: {
+                                        Label("Delete", systemImage: "trash")
+                                    }
+                                }
                             }
-                            Button("Delete", role: .destructive) {
-                                Task { await delete(convo) }
-                            }
                         }
+                        .listStyle(.plain)
+                        .scrollContentBackground(.hidden)
                     }
                 }
             }
             .navigationTitle("Conversations")
-            .searchable(text: $searchText, prompt: "Search")
+            .navigationBarTitleDisplayMode(.large)
+            .searchable(text: $searchText, prompt: "Search conversations")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
@@ -48,6 +62,7 @@ struct ConversationsView: View {
                     } label: {
                         Image(systemName: "plus.circle.fill")
                             .foregroundStyle(NethTheme.orange)
+                            .font(.system(size: 22))
                     }
                 }
             }
@@ -60,6 +75,21 @@ struct ConversationsView: View {
                     }
                 }
             }
+        }
+    }
+
+    private var emptyState: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "bubble.left.and.bubble.right")
+                .font(.system(size: 44))
+                .foregroundStyle(NethTheme.orange.opacity(0.7))
+                .shadow(color: NethTheme.orange.opacity(0.4), radius: 14)
+            Text("No conversations yet")
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(NethTheme.textPrimary)
+            Text("Start one from the Assistant tab.")
+                .font(.subheadline)
+                .foregroundStyle(NethTheme.textTertiary)
         }
     }
 
@@ -93,10 +123,10 @@ struct ConversationRow: View {
         RelativeDateTimeFormatter().localizedString(for: conversation.updatedAt, relativeTo: Date())
     }
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 6) {
             HStack {
                 Text(conversation.title)
-                    .font(.headline)
+                    .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(NethTheme.textPrimary)
                 Spacer()
                 Text(lastTime)
@@ -107,15 +137,19 @@ struct ConversationRow: View {
                 .font(.caption)
                 .foregroundStyle(NethTheme.textSecondary)
                 .lineLimit(2)
+                .multilineTextAlignment(.leading)
             if let m = conversation.modelName {
                 HStack(spacing: 4) {
-                    Image(systemName: "cube.fill").font(.system(size: 8))
-                    Text(m).font(.caption2)
+                    Circle()
+                        .fill(NethTheme.orange)
+                        .frame(width: 5, height: 5)
+                    Text(m)
+                        .font(.caption2)
                 }
                 .foregroundStyle(NethTheme.orange)
             }
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, 6)
     }
 }
 
@@ -123,13 +157,17 @@ struct ConversationDetailView: View {
     let conversation: Conversation
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 14) {
-                ForEach(conversation.messages) { msg in
-                    MessageBlock(message: msg)
+        ZStack {
+            NethTheme.voidBlack.ignoresSafeArea()
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 14) {
+                    ForEach(conversation.messages) { msg in
+                        MessageBlock(message: msg)
+                    }
                 }
+                .padding()
             }
-            .padding()
         }
         .navigationTitle(conversation.title)
         .navigationBarTitleDisplayMode(.inline)
@@ -139,8 +177,10 @@ struct ConversationDetailView: View {
 struct MessageBlock: View {
     let message: ChatMessage
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 8) {
             HStack {
+                Image(systemName: message.role == .user ? "person.fill" : "sparkle")
+                    .font(.caption2)
                 Text(message.role.rawValue.uppercased())
                     .font(.caption2.weight(.bold))
                     .foregroundStyle(message.role == .user ? NethTheme.orange : NethTheme.textTertiary)
@@ -152,14 +192,23 @@ struct MessageBlock: View {
             Text(message.content)
                 .font(.body)
                 .foregroundStyle(NethTheme.textPrimary)
+                .textSelection(.enabled)
             if let stats = message.stats {
-                Text(stats.formattedSummary)
-                    .font(NethTheme.monoFont)
-                    .foregroundStyle(NethTheme.textTertiary)
+                HStack(spacing: 8) {
+                    Image(systemName: "bolt.fill")
+                        .font(.system(size: 9))
+                    Text(stats.formattedSummary)
+                }
+                .font(NethTheme.monoFont)
+                .foregroundStyle(NethTheme.textTertiary)
             }
         }
-        .padding(12)
+        .padding(14)
         .background(NethTheme.charcoal.opacity(0.6))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14)
+                .stroke(NethTheme.hairlineWarm.opacity(0.5), lineWidth: 1)
+        )
     }
 }
