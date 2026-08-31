@@ -28,20 +28,35 @@ final class LlamaEngine: LLMEngine, @unchecked Sendable {
         // unload any existing model first
         unloadModelInternal()
 
-        guard FileManager.default.fileExists(atPath: url.path) else {
+        let fm = FileManager.default
+
+        // Pre-flight 1: file exists
+        guard fm.fileExists(atPath: url.path) else {
+            logger.error("Model file does not exist at path: \(url.path)")
             throw LLMError.modelNotFound(url.path)
         }
 
-        // Quick magic-byte check for GGUF
-        if let fh = try? FileHandle(forReadingFrom: url) {
-            let header = fh.readData(ofLength: 4)
-            try? fh.close()
-            let ggufMagic: [UInt8] = [0x47, 0x47, 0x55, 0x46] // "GGUF"
-            if header != Data(ggufMagic) {
-                logger.error("File at \(url.path) does not have GGUF magic header")
-                throw LLMError.loadFailed("File is not a valid GGUF model.")
-            }
+        // Pre-flight 2: file is not empty
+        guard let attrs = try? fm.attributesOfItem(atPath: url.path),
+              let size = (attrs[.size] as? NSNumber)?.int64Value, size > 0 else {
+            logger.error("Model file is empty or unreadable: \(url.path)")
+            throw LLMError.loadFailed("Model file is empty. It may not have downloaded from iCloud properly. Try re-importing the model.")
         }
+
+        // Pre-flight 3: GGUF magic header
+        guard let fh = try? FileHandle(forReadingFrom: url) else {
+            logger.error("Could not open model file for reading: \(url.path)")
+            throw LLMError.loadFailed("Could not open model file for reading.")
+        }
+        let header = fh.readData(ofLength: 4)
+        try? fh.close()
+        let ggufMagic: [UInt8] = [0x47, 0x47, 0x55, 0x46] // "GGUF"
+        if header != Data(ggufMagic) {
+            logger.error("File at \(url.path) does not have GGUF magic header. Got: \(header.map { String(format: "%02X", $0) }.joined())")
+            throw LLMError.loadFailed("File is not a valid GGUF model. The file may be corrupted or in an unsupported format.")
+        }
+
+        logger.info("Pre-flight checks passed for \(url.lastPathComponent) (\(size) bytes). Loading via llama.cpp...")
 
         do {
             let gpu: GPULayers = (gpuLayers > 0) ? .all : .none
@@ -59,10 +74,26 @@ final class LlamaEngine: LLMEngine, @unchecked Sendable {
             self.loadedModelName = url.lastPathComponent
             self.metalAccelerated = gpuLayers > 0
             lock.unlock()
-            logger.info("Loaded model: \(url.lastPathComponent) (gpuLayers=\(gpuLayers))")
+            logger.info("Loaded model: \(url.lastPathComponent) (gpuLayers=\(gpuLayers), size=\(size) bytes)")
         } catch {
             logger.error("Model load failed: \(String(describing: error))")
-            throw LLMError.loadFailed(String(describing: error))
+            // Provide a user-friendly error message
+            let errMsg: String
+            if let llamaErr = error as? SwiftLlama.LlamaError {
+                switch llamaErr {
+                case .failedToLoadModel(let path):
+                    errMsg = "llama.cpp could not load this model. The file may be corrupted, use an unsupported architecture, or exceed available memory. Path: \(path)"
+                case .invalidModelPath(let path):
+                    errMsg = "Invalid model path: \(path)"
+                case .failedToCreateContext:
+                    errMsg = "Failed to create inference context. The model may be too large for this device's memory."
+                default:
+                    errMsg = String(describing: error)
+                }
+            } else {
+                errMsg = String(describing: error)
+            }
+            throw LLMError.loadFailed(errMsg)
         }
     }
 

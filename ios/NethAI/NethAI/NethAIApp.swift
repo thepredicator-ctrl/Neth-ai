@@ -2,13 +2,20 @@ import SwiftUI
 
 @main
 struct NethAIApp: App {
-    @State private var appState = AppState()
+    @StateObject private var appState = AppState()
+    @StateObject private var authService = AuthService()
 
     var body: some Scene {
         WindowGroup {
-            RootView()
-                .environment(appState)
-                .preferredColorScheme(.dark)
+            if authService.isSignedIn {
+                RootView()
+                    .environment(appState)
+                    .preferredColorScheme(.dark)
+            } else {
+                LoginView()
+                    .environmentObject(authService)
+                    .preferredColorScheme(.dark)
+            }
         }
     }
 }

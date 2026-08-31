@@ -2,6 +2,7 @@ import SwiftUI
 
 struct SettingsView: View {
     @Environment(AppState.self) private var appState
+    @StateObject private var authService = AuthService()
     @State private var localAPIEnabled = false
     @State private var pcServerHost: String = ""
     @State private var pcServerPort: String = "11434"
@@ -12,6 +13,50 @@ struct SettingsView: View {
                 NethTheme.voidBlack.ignoresSafeArea()
 
                 List {
+                    // Account section
+                    Section {
+                        if let user = authService.currentUser {
+                            HStack(spacing: 12) {
+                                ZStack {
+                                    Circle()
+                                        .fill(LinearGradient(
+                                            colors: [NethTheme.orangeBright, NethTheme.orangeDeep],
+                                            startPoint: .top, endPoint: .bottom
+                                        ))
+                                        .frame(width: 44, height: 44)
+                                    Text(user.displayName.prefix(1).uppercased())
+                                        .font(.system(size: 18, weight: .bold))
+                                        .foregroundStyle(.black)
+                                }
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text(user.displayName)
+                                        .font(.system(size: 16, weight: .semibold))
+                                        .foregroundStyle(NethTheme.textPrimary)
+                                    Text(user.isGuest ? "Guest account" : (user.email ?? "Apple ID"))
+                                        .font(.caption)
+                                        .foregroundStyle(NethTheme.textSecondary)
+                                }
+                                Spacer()
+                            }
+                            .padding(.vertical, 4)
+
+                            Button(role: .destructive) {
+                                authService.signOut()
+                            } label: {
+                                HStack {
+                                    Spacer()
+                                    Text("Sign Out")
+                                        .font(.system(size: 15, weight: .semibold))
+                                    Spacer()
+                                }
+                            }
+                        }
+                    } header: {
+                        sectionHeader("Account")
+                    }
+                    .listRowBackground(NethTheme.charcoal.opacity(0.4))
+                    .listRowSeparatorTint(NethTheme.hairline)
+
                     Section {
                         row("Backend", value: "llama.cpp (SwiftLlama)")
                         row("Metal acceleration", value: appState.llmEngine.metalAccelerated ? "Enabled" : "Off")
@@ -86,7 +131,7 @@ struct SettingsView: View {
 
                     Section {
                         row("App", value: "Neth-AI")
-                        row("Version", value: "0.2.0")
+                        row("Version", value: "0.3.0")
                         row("Engine", value: "llama.cpp")
                         row("Platforms", value: "iPadOS / iOS 17+")
                     } header: {

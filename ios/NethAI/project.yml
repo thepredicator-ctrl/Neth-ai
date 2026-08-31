@@ -34,12 +34,21 @@ targets:
     resources:
       - path: NethAI/Resources
         optional: true
+    entitlements:
+      path: NethAI/NethAI.entitlements
+      properties:
+        com.apple.developer.applesignin:
+          - Default
+        com.apple.developer.icloud-container-identifiers: []
+        com.apple.developer.ubiquity-kvstore-identifier: "$(TeamIdentifierPrefix)$(CFBundleIdentifier)"
+        com.apple.developer.icloud-services:
+          - CloudDocuments
     info:
       path: NethAI/Info.plist
       properties:
         CFBundleDisplayName: Neth-AI
-        CFBundleShortVersionString: "0.2.0"
-        CFBundleVersion: "2"
+        CFBundleShortVersionString: "0.3.0"
+        CFBundleVersion: "3"
         UILaunchScreen:
           UIColorName: "NethBlack"
         UIRequiredDeviceCapabilities:
@@ -81,5 +90,6 @@ targets:
         SUPPORTS_MACCATALYST: "NO"
         ENABLE_PREVIEWS: "YES"
         GENERATE_INFOPLIST_FILE: "NO"
+        CODE_SIGN_ENTITLEMENTS: NethAI/NethAI.entitlements
     dependencies:
       - package: SwiftLlama
