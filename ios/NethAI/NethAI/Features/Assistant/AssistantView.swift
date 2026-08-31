@@ -8,7 +8,7 @@ import UniformTypeIdentifiers
 // when no model is loaded.
 
 struct AssistantView: View {
-    @Environment(AppState.self) private var appState
+    @EnvironmentObject private var appState: AppState
     @StateObject private var speech = SpeechRecognizer()
     @StateObject private var images = ImageInputManager()
 
@@ -79,7 +79,7 @@ struct AssistantView: View {
         }
         .sheet(isPresented: $showModelSwitcher) {
             ModelSwitcherSheet()
-                .environment(appState)
+                .environmentObject(appState)
         }
     }
 
@@ -663,7 +663,7 @@ struct NethBackground: View {
 // MARK: - Model switcher sheet
 
 struct ModelSwitcherSheet: View {
-    @Environment(AppState.self) private var appState
+    @EnvironmentObject private var appState: AppState
     @Environment(\.dismiss) private var dismiss
     @State private var loading: InstalledModel?
     @State private var showFilePicker = false

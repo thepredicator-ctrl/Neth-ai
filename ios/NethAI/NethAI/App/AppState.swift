@@ -1,46 +1,46 @@
 import SwiftUI
 import Combine
 
-@Observable
-final class AppState {
+@MainActor
+final class AppState: ObservableObject {
     // Engine
-    var engineState: OrbState = .idle
-    var inferenceStats: InferenceStats?
-    var currentModel: InstalledModel?
-    var isModelLoaded: Bool = false
-    var lastError: String?
+    @Published var engineState: OrbState = .idle
+    @Published var inferenceStats: InferenceStats?
+    @Published var currentModel: InstalledModel?
+    @Published var isModelLoaded: Bool = false
+    @Published var lastError: String?
 
     // Conversations
-    var conversations: [Conversation] = []
-    var currentConversation: Conversation?
+    @Published var conversations: [Conversation] = []
+    @Published var currentConversation: Conversation?
 
     // Voice
-    var isListening: Bool = false
-    var transcript: String = ""
+    @Published var isListening: Bool = false
+    @Published var transcript: String = ""
 
     // Vision
-    var attachedImages: [AttachedImage] = []
+    @Published var attachedImages: [AttachedImage] = []
 
     // Generation
-    var streamingResponse: String = ""
-    var isGenerating: Bool = false
-    var pendingPrompt: String = ""
+    @Published var streamingResponse: String = ""
+    @Published var isGenerating: Bool = false
+    @Published var pendingPrompt: String = ""
 
     // Model manager
-    var installedModels: [InstalledModel] = []
-    var modelManager: ModelManager = ModelManager.shared
+    @Published var installedModels: [InstalledModel] = []
+    let modelManager = ModelManager.shared
 
     // Engine backend
-    var llmEngine: LLMEngine
+    let llmEngine: LLMEngine
 
     // Local API
-    var localAPIEnabled: Bool = false
-    var localAPIPort: Int = 11434
+    @Published var localAPIEnabled: Bool = false
+    @Published var localAPIPort: Int = 11434
 
     // PC Server connection (optional)
-    var pcServerHost: String = ""
-    var pcServerPort: Int = 11434
-    var pcServerEnabled: Bool = false
+    @Published var pcServerHost: String = ""
+    @Published var pcServerPort: Int = 11434
+    @Published var pcServerEnabled: Bool = false
 
     init() {
         self.llmEngine = LlamaEngine()
@@ -70,7 +70,6 @@ final class AppState {
     func setEngineState(_ state: OrbState) {
         engineState = state
         if state == .error {
-            // brief error, then back to idle
             Task { @MainActor in
                 try? await Task.sleep(for: .seconds(2.5))
                 if engineState == .error { engineState = .idle }

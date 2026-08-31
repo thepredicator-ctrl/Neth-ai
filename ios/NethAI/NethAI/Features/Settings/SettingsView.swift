@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct SettingsView: View {
-    @Environment(AppState.self) private var appState
+    @EnvironmentObject private var appState: AppState
     @StateObject private var authService = AuthService()
     @State private var localAPIEnabled = false
     @State private var pcServerHost: String = ""

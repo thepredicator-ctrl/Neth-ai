@@ -9,7 +9,7 @@ struct NethAIApp: App {
         WindowGroup {
             if authService.isSignedIn {
                 RootView()
-                    .environment(appState)
+                    .environmentObject(appState)
                     .preferredColorScheme(.dark)
             } else {
                 LoginView()

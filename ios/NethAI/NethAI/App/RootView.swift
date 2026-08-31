@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct RootView: View {
-    @Environment(AppState.self) private var appState
+    @EnvironmentObject private var appState: AppState
     @State private var selectedTab: Tab = .assistant
 
     enum Tab: String, CaseIterable, Identifiable {
@@ -57,7 +57,7 @@ struct RootView: View {
 
 struct NethTabBar: View {
     @Binding var selectedTab: RootView.Tab
-    @Environment(AppState.self) private var appState
+    @EnvironmentObject private var appState: AppState
 
     var body: some View {
         HStack(spacing: 0) {

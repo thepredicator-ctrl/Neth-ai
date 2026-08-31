@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct ConversationsView: View {
-    @Environment(AppState.self) private var appState
+    @EnvironmentObject private var appState: AppState
     @State private var searchText: String = ""
     @State private var renaming: Conversation?
     @State private var renameText: String = ""
