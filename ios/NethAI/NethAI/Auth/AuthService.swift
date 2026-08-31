@@ -185,8 +185,6 @@ final class AuthService: NSObject, ObservableObject, ASAuthorizationControllerDe
                 case .failed:
                     self.error = "Sign in with Apple failed. This usually means the app is not properly signed with an Apple Developer certificate. Use 'Continue as Guest' instead, or sign the IPA with your own developer account."
                     self.logger.error("ASAuthorizationError.failed: \(error.localizedDescription)")
-                case .invalidated:
-                    self.error = "Your Sign in with Apple credential was invalidated. Please try again."
                 case .notHandled:
                     self.error = "Sign in with Apple request was not handled. Please try again."
                 case .notInteractive:
@@ -194,8 +192,6 @@ final class AuthService: NSObject, ObservableObject, ASAuthorizationControllerDe
                 case .unknown:
                     self.error = "Sign in with Apple failed with an unknown error. The app may not be properly signed. Use 'Continue as Guest' instead."
                     self.logger.error("ASAuthorizationError.unknown: \(error.localizedDescription)")
-                case .credentialMissing:
-                    self.error = "Sign in with Apple credential is missing. Please try again."
                 @unknown default:
                     self.error = "Sign in with Apple failed: \(error.localizedDescription)"
                 }
@@ -210,25 +206,22 @@ final class AuthService: NSObject, ObservableObject, ASAuthorizationControllerDe
     nonisolated func presentationAnchor(for controller: ASAuthorizationController) -> ASPresentationAnchor {
         // Called on main thread by the system.
         if Thread.isMainThread {
-            return findKeyWindow() ?? ASPresentationAnchor()
+            return Self.findKeyWindow() ?? ASPresentationAnchor()
         }
         // Fallback: dispatch sync to main thread
         var anchor = ASPresentationAnchor()
         DispatchQueue.main.sync {
-            anchor = self.findKeyWindow() ?? ASPresentationAnchor()
+            anchor = Self.findKeyWindow() ?? ASPresentationAnchor()
         }
         return anchor
     }
 
-    @MainActor
-    private func findKeyWindow() -> ASPresentationAnchor? {
-        // iOS 15+: use connectedScenes
+    nonisolated private static func findKeyWindow() -> ASPresentationAnchor? {
         for scene in UIApplication.shared.connectedScenes {
             guard let windowScene = scene as? UIWindowScene else { continue }
             for window in windowScene.windows where window.isKeyWindow {
                 return window
             }
-            // If no key window, return the first window
             if let first = windowScene.windows.first {
                 return first
             }
